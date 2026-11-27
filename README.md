@@ -4,7 +4,6 @@
 
 [![Live demo](https://img.shields.io/badge/demo-af--image--optimizer.vercel.app-2f6fed)](https://af-image-optimizer.vercel.app)
 [![npm](https://img.shields.io/npm/v/af-image-optimizer?color=cb3837)](https://www.npmjs.com/package/af-image-optimizer)
-[![CI](https://github.com/azimfakhri/af-image-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/azimfakhri/af-image-optimizer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 <p align="center">
