@@ -25,6 +25,7 @@ Drop in photos (JPG/JPEG/JFIF, PNG, WebP, AVIF), whole folders, or paste from th
 | Picks quality per image (SSIM) | ✅ | ❌ | ❌ manual slider |
 | "Make it under 100 KB" | ✅ | ❌ | ❌ |
 | Presets for WhatsApp, Instagram, Shopify, WordPress… | ✅ | ❌ | ❌ |
+| iPhone HEIC photos | ✅ in every browser | Some | ❌ |
 | Embed in your own app | ✅ npm, web component, input enhancer, iframe | Paid API | ❌ |
 | Price | Free, MIT | Freemium | Free |
 
@@ -60,7 +61,8 @@ The server's only job is to serve static files once: about 1.5 MB of JS and WASM
 - Destination presets: web hero, content, thumbnail, WhatsApp/Facebook preview (1200×630), Instagram, WordPress, Shopify, email, form upload (≤100 KB), custom.
 - Before/after compare slider (fit / 100% / 200%) with live quality adjustment per file.
 - Batch processing, folder in/out (the ZIP keeps the folder structure; Chromium can save straight to a folder), paste from clipboard.
-- Format detection from file bytes, so `.jfif` and renamed files are handled. HEIC is coming soon; animated WebP and GIF are rejected with a message.
+- Format detection from file bytes, so `.jfif` and renamed files are handled. Animated WebP and GIF are rejected with a message.
+- **HEIC/HEIF (iPhone photos)** in every browser: Safari decodes them natively; Chrome and Firefox load a libheif WebAssembly decoder (about 700 KB gzipped) only when you add a HEIC file.
 - Transparency detection by scanning pixels: few colours → lossless palette PNG, otherwise WebP with alpha.
 
 ---
@@ -71,7 +73,7 @@ The server's only job is to serve static files once: about 1.5 MB of JS and WASM
 npm install af-image-optimizer
 ```
 
-**Zero dependencies.** The codecs (MozJPEG, libwebp, oxipng, Lanczos3 resize) and their WebAssembly are bundled into the package, so nothing else gets installed. No peer dependency on React either: the web component bundles its own copy.
+**Zero dependencies.** The codecs (MozJPEG, libwebp, oxipng, Lanczos3 resize, libheif) and their WebAssembly are bundled into the package, so nothing else gets installed. No peer dependency on React either: the web component bundles its own copy. The HEIC decoder is a separate file that's only fetched when needed (see [License](#license)).
 
 ```ts
 import { optimize } from 'af-image-optimizer';
@@ -262,7 +264,9 @@ npm run build:lib            # npm package → dist-lib/
 ./scripts/make-fixtures.sh   # macOS: extra images for manual testing in tests/fixtures/
 ```
 
-Codecs: [jSquash](https://github.com/jamsinclair/jSquash) (MozJPEG, libwebp, oxipng, Lanczos3 resize; Apache-2.0). ZIP: [fflate](https://github.com/101arrowz/fflate) (MIT).
+Codecs: [jSquash](https://github.com/jamsinclair/jSquash) (MozJPEG, libwebp, oxipng, Lanczos3 resize; Apache-2.0) and [libheif-js](https://github.com/catdad-experiments/libheif-js) (HEIC; LGPL-3.0). ZIP: [fflate](https://github.com/101arrowz/fflate) (MIT).
 
 ## License
-MIT
+MIT for this project's code.
+
+The HEIC decoder, libheif, is LGPL-3.0. It ships unmodified as its own file (`assets/libheif-bundle-*.js`), loaded only to decode HEIC where the browser can't. You can use the package in closed-source and commercial projects; just keep [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) with it. Details and all bundled licences are in that file.

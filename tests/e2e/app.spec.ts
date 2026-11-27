@@ -85,11 +85,35 @@ test('WhatsApp / Facebook preset crops to exactly 1200×630 JPEG', async ({ page
   expect([o.width, o.height]).toEqual([1200, 630]);
 });
 
-test('rejects corrupt files and HEIC with a clear message', async ({ page }) => {
-  await addFiles(page, ['corrupt.jpg', 'iphone.heic', 'landscape.jpg']);
-  await expect(row(page, 'iphone.heic')).toContainText('HEIC support is coming soon');
+test('converts HEIC (native in Safari, libheif elsewhere)', async ({ page, browserName }) => {
+  const libheif: string[] = [];
+  page.on('request', (r) => r.url().includes('libheif') && libheif.push(r.url()));
+  await addFiles(page, ['landscape.heic']);
+  const o = await output(page, 'landscape.heic', [
+    [0.05, 0.05],
+    [0.95, 0.05],
+  ]);
+  expect(isWebp(o)).toBe(true);
+  expect([o.width, o.height]).toEqual([1600, 1066]);
+  // Safari decodes HEIC itself and never downloads the decoder.
+  if (browserName === 'webkit') expect(libheif).toEqual([]);
+  else expect(libheif.length).toBeGreaterThan(0);
+  expect(near(o.pixels[0], [255, 0, 0])).toBe(true);
+  expect(near(o.pixels[1], [0, 0, 255])).toBe(true);
+});
+
+test('HEIC in the Form upload preset becomes a JPEG under 100 KB', async ({ page }) => {
+  await selectPreset(page, 'Form upload');
+  await addFiles(page, ['landscape.heic']);
+  const o = await output(page, 'landscape.heic');
+  expect(isJpeg(o)).toBe(true);
+  expect(o.size).toBeLessThanOrEqual(100 * 1024);
+});
+
+test('shows an error for corrupt files without stopping the batch', async ({ page }) => {
+  await addFiles(page, ['corrupt.jpg', 'broken.heic', 'landscape.jpg']);
   await expect(row(page, 'corrupt.jpg').locator('.text-danger')).toBeVisible();
-  // One bad file doesn't stop the batch.
+  await expect(row(page, 'broken.heic').locator('.text-danger')).toBeVisible();
   await output(page, 'landscape.jpg');
 });
 

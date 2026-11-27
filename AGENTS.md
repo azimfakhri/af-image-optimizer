@@ -34,6 +34,7 @@ src/
   components/                DropZone, PresetBar, SettingsPanel, FileRow, CompareModal, ThemeToggle
   workers/encoder.worker.ts  decode → crop → Lanczos3 → alpha scan → encode (fixed | smart | target) → never-bigger fallback
   workers/protocol.ts        worker message types, MIME/extension maps
+  workers/heic.ts            lazy libheif decoder for browsers without native HEIC (LGPL, separate chunk)
   lib/
     detectFormat.ts          magic-byte sniffing (JPEG/PNG/WebP/AVIF/HEIC; rejects animated WebP, GIF)
     presets.ts               preset definitions; Settings type
@@ -42,7 +43,7 @@ src/
     ssim.ts, search.ts       SSIM on luma; binary searches for smart quality and target size
     strip.ts                 lossless JPEG/PNG metadata strip (used by the fallback)
     pipeline.ts              worker pool: concurrency + megapixel budget, cancellation, CDN-safe worker start
-    dimensions.ts            header dimensions (JPEG/PNG/WebP) for the memory budget
+    dimensions.ts            header dimensions (JPEG/PNG/WebP, HEIC/AVIF ispe) for the memory budget
     folderOutput.ts          Save to folder (showDirectoryPicker, Chromium)
     folderInput.ts, naming.ts, zip.ts, format.ts
 tests/unit/                  Vitest tests for lib/ and core
@@ -61,7 +62,8 @@ vercel.json                  static deploy + strict CSP (connect-src 'self'); /e
 - **Never bigger:** return the original (metadata stripped) only when its dimensions and format already match the output. Never strip a JPEG whose EXIF orientation is not 1. In target mode, the size cap is `min(target, original size)`.
 - **WebP:** searches use method 4; the final encode uses method 6.
 - **Single-threaded WASM only** (no COOP/COEP headers needed). Parallelism comes from the worker pool.
-- **Licensing:** the project is MIT. Do not add GPL dependencies; libimagequant was rejected for this reason.
+- **Licensing:** the project is MIT. Do not add GPL dependencies; libimagequant was rejected for this reason. The one LGPL exception is libheif (HEIC): it must stay an unmodified, separate chunk loaded with a dynamic `import()` (`src/workers/heic.ts`), listed in THIRD_PARTY_NOTICES.md with its licence in `licenses/`. Update both when bumping libheif-js.
+- **HEIC:** try `createImageBitmap` first (Safari decodes natively), then fall back to libheif. Target mode doesn't cap HEIC output at the original size, because JPEG/WebP can't match HEVC.
 - jSquash packages must stay in `optimizeDeps.exclude` in `vite.config.ts`, because they load `.wasm` via `import.meta.url`.
 - `store.ts` keeps one AbortController per item; results from superseded runs are dropped.
 - The worker URL comes from `?worker&url`; `startWorker()` wraps cross-origin URLs (CDN) in a same-origin blob shim. The library build uses `base: './'` so the URL is `import.meta.url`-relative and the WASM is inlined.
@@ -77,4 +79,4 @@ vercel.json                  static deploy + strict CSP (connect-src 'self'); /e
 
 ## Roadmap
 Done: milestones 1–5, plus the integrations (npm library, web component, input enhancer, iframe embed) and the Vercel config.
-Skipped for now: SEO landing pages. Published to npm (0.1.0). Phase 2: AVIF output, crop/focal point, srcset/`<picture>` + LQIP export, HEIC input, saved presets, PWA.
+Skipped for now: SEO landing pages. Published to npm (0.1.0). HEIC input done. Phase 2: AVIF output, crop/focal point, srcset/`<picture>` + LQIP export, saved presets, PWA.

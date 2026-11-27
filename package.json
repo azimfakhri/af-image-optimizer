@@ -1,8 +1,8 @@
 {
   "name": "af-image-optimizer",
   "version": "0.1.0",
-  "description": "Private, in-browser image optimizer: batch-compress JPG/PNG/WebP with smart quality (SSIM) and target-size modes. Library, web component, input enhancer and iframe embed.",
-  "license": "MIT",
+  "description": "Private, in-browser image optimizer: batch-compress JPG/PNG/WebP/HEIC with smart quality (SSIM) and target-size modes. Library, web component, input enhancer and iframe embed.",
+  "license": "MIT AND LGPL-3.0",
   "type": "module",
   "repository": {
     "type": "git",
@@ -18,7 +18,8 @@
     "wasm",
     "browser",
     "web-component",
-    "resize"
+    "resize",
+    "heic"
   ],
   "main": "./dist-lib/index.js",
   "module": "./dist-lib/index.js",
@@ -36,7 +37,9 @@
   "files": [
     "dist-lib",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "licenses"
   ],
   "sideEffects": [
     "./dist-lib/element.js",
@@ -66,6 +69,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
     "fflate": "^0.8.3",
+    "libheif-js": "^1.23.5",
     "oxlint": "^1.94.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

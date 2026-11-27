@@ -23,6 +23,24 @@ describe('readDimensions', () => {
     b.set([0x50, 0x01, 0x00], 27); // 337-1
     expect(readDimensions(b, 'webp')).toEqual({ width: 600, height: 337 });
   });
+
+  it('reads the largest HEIC ispe (skipping tile/thumbnail extents)', () => {
+    const ispe = (w: number, h: number) => {
+      const box = new Uint8Array(20);
+      const v = new DataView(box.buffer);
+      v.setUint32(0, 20);
+      box.set([...'ispe'].map((c) => c.charCodeAt(0)), 4);
+      v.setUint32(12, w);
+      v.setUint32(16, h);
+      return box;
+    };
+    const b = new Uint8Array(100);
+    b.set(ispe(512, 512), 10);
+    b.set(ispe(4032, 3024), 40);
+    b.set(ispe(320, 240), 70);
+    expect(readDimensions(b, 'heic')).toEqual({ width: 4032, height: 3024 });
+    expect(readDimensions(new Uint8Array(40), 'heic')).toBeNull();
+  });
 });
 
 describe('resolveSettings', () => {

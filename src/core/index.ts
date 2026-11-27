@@ -66,7 +66,6 @@ export async function probe(file: Blob): Promise<Probe> {
   const head = new Uint8Array(await file.slice(0, PROBE_BYTES).arrayBuffer());
   const d = detectFormat(head);
   if (!d.ok) throw new OptimizeError('unsupported', d.reason);
-  if (d.format === 'heic') throw new OptimizeError('unsupported', 'HEIC support is coming soon. Export as JPEG for now.');
   const dims = readDimensions(head, d.format);
   if (dims && (dims.width * dims.height) / 1e6 > MAX_SOURCE_MP)
     throw new OptimizeError('too-large', `Larger than ${MAX_SOURCE_MP} megapixels.`);

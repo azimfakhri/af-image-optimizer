@@ -72,15 +72,24 @@ interface Prepared {
   notes: string[];
 }
 
+const DECODE: ImageBitmapOptions = { imageOrientation: 'from-image', premultiplyAlpha: 'none', colorSpaceConversion: 'default' };
+
+/** Browser decode; HEIC falls back to libheif (lazy-loaded) where the browser can't decode it (all but Safari). */
+async function decode(file: Blob, format: JobRequest['inputFormat']): Promise<ImageBitmap> {
+  if (format !== 'heic') return createImageBitmap(file, DECODE);
+  try {
+    return await createImageBitmap(file, DECODE);
+  } catch {
+    const { decodeHeic } = await import('./heic');
+    return createImageBitmap(await decodeHeic(file), { premultiplyAlpha: 'none' });
+  }
+}
+
 /** Decode (EXIF-aware), crop and Lanczos3-resize to the target geometry. */
 async function prepare(job: JobRequest): Promise<Prepared> {
   const s: Settings = job.settings;
   const notes: string[] = [];
-  const bitmap = await createImageBitmap(job.file, {
-    imageOrientation: 'from-image',
-    premultiplyAlpha: 'none',
-    colorSpaceConversion: 'default',
-  });
+  const bitmap = await decode(job.file, job.inputFormat);
   const inWidth = bitmap.width;
   const inHeight = bitmap.height;
   const geo = computeGeometry(inWidth, inHeight, s.fit, s.maxWidth, s.maxHeight);
@@ -139,8 +148,9 @@ async function run(job: JobRequest): Promise<JobSuccess> {
     score = r.ssim;
     buffer = format === 'webp' ? await enc(img, r.quality, true) : r.bytes;
   } else {
-    // Never spend more bytes than the original, even if the target allows it.
-    const maxBytes = Math.min(s.targetKB * 1024, job.file.size);
+    // Never spend more bytes than the original, even if the target allows it. HEIC is the exception:
+    // it's converted for compatibility, and JPEG/WebP can't match HEVC's compression.
+    const maxBytes = job.inputFormat === 'heic' ? s.targetKB * 1024 : Math.min(s.targetKB * 1024, job.file.size);
     let found: { quality: number; bytes: ArrayBuffer } | null = null;
     for (let round = 0; round < 5; round++) {
       found = await searchTarget((q) => enc(img, q, false), maxBytes);
@@ -176,7 +186,12 @@ async function run(job: JobRequest): Promise<JobSuccess> {
         notes.push('Already optimal; original kept (metadata removed).');
       }
     }
-    if (!fallback) notes.push('Output is larger than the original.');
+    if (!fallback)
+      notes.push(
+        job.inputFormat === 'heic'
+          ? 'Larger than the HEIC original, which compresses better but most apps and sites can’t open.'
+          : 'Output is larger than the original.',
+      );
   }
 
   return {

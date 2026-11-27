@@ -52,6 +52,20 @@ export function readDimensions(b: Uint8Array, format: InputFormat): Dimensions |
         };
       return null;
     }
+    case 'heic':
+    case 'avif': {
+      // ISO-BMFF: image spatial extents live in 'ispe' properties (full box: version/flags, width, height).
+      // Grid images also list their tiles and thumbnails, so take the largest.
+      const be32 = (o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
+      let best: Dimensions | null = null;
+      for (let o = 4; o + 16 <= b.length; o++) {
+        if (b[o] !== 0x69 || tag(o) !== 'ispe' || be32(o - 4) !== 20) continue;
+        const width = be32(o + 8);
+        const height = be32(o + 12);
+        if (!best || width * height > best.width * best.height) best = { width, height };
+      }
+      return best;
+    }
     default:
       return null;
   }

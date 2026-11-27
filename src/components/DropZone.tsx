@@ -42,7 +42,7 @@ export function DropZone({ onFiles, compact }: { onFiles: (p: Picked[]) => void;
       } ${compact ? 'px-4 py-5' : 'px-6 py-14'}`}
     >
       <p className={`font-semibold ${compact ? 'text-base' : 'text-xl'}`}>Drop images or folders here</p>
-      <p className="mt-1 text-sm text-muted">JPG / JPEG / JFIF, PNG, WebP, AVIF · or paste with Ctrl/⌘+V</p>
+      <p className="mt-1 text-sm text-muted">JPG / JPEG / JFIF, PNG, WebP, HEIC, AVIF · or paste with Ctrl/⌘+V</p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         <button type="button" className="btn-primary" onClick={() => fileInput.current?.click()}>
           Choose images

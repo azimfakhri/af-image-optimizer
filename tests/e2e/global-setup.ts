@@ -3,17 +3,20 @@
  * Photos are drawn and encoded by Chromium's canvas; byte-level tweaks (EXIF, corrupt, HEIC) happen here.
  */
 import { chromium } from '@playwright/test';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { FIXTURES, fixture } from './helpers.ts';
 
 /** Bump when the generated files change so stale local copies are rebuilt. */
-const VERSION = '2';
+const VERSION = '3';
 
 export default async function globalSetup() {
   const stamp = fixture('.version');
   if (existsSync(stamp) && readFileSync(stamp, 'utf8') === VERSION) return;
   mkdirSync(FIXTURES, { recursive: true });
+  // Committed: a 1600×1066 HEIC of the same synthetic scene (made once with macOS `sips -s format heic`).
+  copyFileSync(resolve(import.meta.dirname, 'assets/landscape.heic'), fixture('landscape.heic'));
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -90,7 +93,8 @@ export default async function globalSetup() {
   writeFileSync(fixture('already-small.webp'), Buffer.from(out.smallWebp, 'base64'));
   writeFileSync(fixture('logo-transparent.png'), logoPng(800));
   writeFileSync(fixture('corrupt.jpg'), Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), pseudoRandom(20_000)]));
-  writeFileSync(fixture('iphone.heic'), Buffer.concat([ftyp('heic', ['mif1', 'heic']), pseudoRandom(2_000)]));
+  // Valid HEIC signature, garbage body.
+  writeFileSync(fixture('broken.heic'), Buffer.concat([ftyp('heic', ['mif1', 'heic']), pseudoRandom(2_000)]));
   writeFileSync(stamp, VERSION);
 }
 
