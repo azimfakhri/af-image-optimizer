@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   worker: { format: 'es' },
   base: './',
+  publicDir: false,
   define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   build: {
     outDir: 'dist-lib',
