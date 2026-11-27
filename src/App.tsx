@@ -7,12 +7,15 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { ThemeToggle } from './components/ThemeToggle';
 import { canSaveToFolder, saveToFolder } from './lib/folderOutput';
 import { formatBytes, formatChange } from './lib/format';
+import { formatAspect } from './lib/geometry';
 import type { Settings } from './lib/presets';
 import { buildZip, download } from './lib/zip';
 import { useOptimizer, type Item } from './store';
 
 export interface AppProps {
   initialPreset?: string;
+  /** Settings pinned by the embedder; kept when the user switches presets. */
+  settings?: Partial<Settings>;
   /** Hide chrome that doesn't belong in an embed (theme toggle). */
   embedded?: boolean;
   /** Called with finished results when the user clicks "Use these images" (embed / web component). */
@@ -25,11 +28,15 @@ function summarize(s: Settings): string {
   const size = s.maxWidth && s.maxHeight ? `${s.maxWidth}×${s.maxHeight}${s.fit === 'cover' ? ' crop' : ''}` : s.maxWidth ? `${s.maxWidth} px wide` : s.maxHeight ? `${s.maxHeight} px tall` : 'original size';
   const fmt = s.format === 'auto' ? `Auto (${s.opaqueFormat === 'jpeg' ? 'JPEG' : 'WebP'})` : s.format.toUpperCase();
   const q = s.mode === 'smart' ? 'smart quality' : s.mode === 'fixed' ? `quality ${s.quality}` : `under ${s.targetKB} KB`;
-  return `${size} · ${fmt} · ${q}`;
+  const crop =
+    s.fit !== 'cover' && (s.minAspect || s.maxAspect)
+      ? ` · crop ${[s.minAspect && `taller than ${formatAspect(s.minAspect)}`, s.maxAspect && `wider than ${formatAspect(s.maxAspect)}`].filter(Boolean).join(', ')}`
+      : '';
+  return `${size}${crop} · ${fmt} · ${q}`;
 }
 
-export default function App({ initialPreset, embedded, onUse }: AppProps) {
-  const o = useOptimizer(initialPreset);
+export default function App({ initialPreset, settings, embedded, onUse }: AppProps) {
+  const o = useOptimizer(initialPreset, settings);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [comparing, setComparing] = useState<string | null>(null);
 

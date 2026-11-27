@@ -1,4 +1,47 @@
+import { formatAspect, parseAspect, type CropPosition } from '../lib/geometry';
 import type { FormatChoice, QualityMode, Settings } from '../lib/presets';
+
+const TALLER = ['16:9', '3:2', '4:3', '1:1', '4:5', '3:4', '2:3'];
+const WIDER = ['1:1', '4:3', '3:2', '16:9', '2:1', '3:1'];
+const POSITIONS: [CropPosition, string][] = [
+  ['center', 'Centre'],
+  ['top', 'Top'],
+  ['bottom', 'Bottom'],
+  ['left', 'Left'],
+  ['right', 'Right'],
+];
+
+/** Ratio <select>: "Off" plus presets; a pinned custom value (e.g. from an attribute) is shown too. */
+function AspectSelect({ label, aria, value, choices, disabled, onChange }: {
+  label: string;
+  aria: string;
+  value?: number;
+  choices: string[];
+  disabled: boolean;
+  onChange: (v: number | undefined) => void;
+}) {
+  const current = value ? choices.find((c) => Math.abs(parseAspect(c) - value) < 0.001) ?? formatAspect(value) : '';
+  const opts = current && !choices.includes(current) ? [...choices, current] : choices;
+  return (
+    <label className="flex items-center justify-between gap-2 text-sm">
+      {label}
+      <select
+        aria-label={aria}
+        className="input w-24"
+        value={current}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value ? parseAspect(e.target.value) : undefined)}
+      >
+        <option value="">Off</option>
+        {opts.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 const SSIM_LEVELS = [
   { v: 0.97, label: 'Smaller' },
@@ -44,6 +87,40 @@ export function SettingsPanel({ s, onChange }: { s: Settings; onChange: (p: Part
           />
           Crop to exact size
         </label>
+        <p className="pt-1 text-xs text-muted">Crop images that are…</p>
+        <AspectSelect
+          label="Taller than"
+          aria="Crop if taller than"
+          value={s.minAspect}
+          choices={TALLER}
+          disabled={s.fit === 'cover'}
+          onChange={(v) => onChange({ minAspect: v, ...(v && s.maxAspect && v > s.maxAspect && { maxAspect: undefined }) })}
+        />
+        <AspectSelect
+          label="Wider than"
+          aria="Crop if wider than"
+          value={s.maxAspect}
+          choices={WIDER}
+          disabled={s.fit === 'cover'}
+          onChange={(v) => onChange({ maxAspect: v, ...(v && s.minAspect && v < s.minAspect && { minAspect: undefined }) })}
+        />
+        {(s.fit === 'cover' || s.minAspect || s.maxAspect) && (
+          <label className="flex items-center justify-between gap-2 text-sm">
+            Keep
+            <select
+              aria-label="Part to keep when cropping"
+              className="input w-24"
+              value={s.cropPosition ?? 'center'}
+              onChange={(e) => onChange({ cropPosition: e.target.value as CropPosition })}
+            >
+              {POSITIONS.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </fieldset>
 
       <fieldset className="space-y-2">

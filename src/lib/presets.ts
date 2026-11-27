@@ -1,4 +1,4 @@
-import type { Fit } from './geometry';
+import type { CropPosition, Fit } from './geometry';
 
 export type OutputFormat = 'jpeg' | 'webp' | 'png';
 export type FormatChoice = OutputFormat | 'auto';
@@ -8,6 +8,12 @@ export interface Settings {
   maxWidth?: number;
   maxHeight?: number;
   fit: Fit;
+  /** Crop images narrower/taller than this width/height ratio (e.g. 4/3). Unset = never. */
+  minAspect?: number;
+  /** Crop images wider than this width/height ratio (e.g. 16/9). Unset = never. */
+  maxAspect?: number;
+  /** Part of the image kept when cropping (aspect limits and `cover`). Default 'center'. */
+  cropPosition?: CropPosition;
   format: FormatChoice;
   /** Format Auto uses for opaque images. */
   opaqueFormat: 'jpeg' | 'webp';

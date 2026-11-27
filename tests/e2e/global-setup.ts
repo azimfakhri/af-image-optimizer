@@ -9,7 +9,7 @@ import { deflateSync } from 'node:zlib';
 import { FIXTURES, fixture } from './helpers.ts';
 
 /** Bump when the generated files change so stale local copies are rebuilt. */
-const VERSION = '3';
+const VERSION = '4';
 
 export default async function globalSetup() {
   const stamp = fixture('.version');
@@ -88,6 +88,8 @@ export default async function globalSetup() {
   writeFileSync(fixture('photo.jfif'), landscape);
   writeFileSync(fixture('jpeg-renamed.png'), landscape);
   writeFileSync(fixture('rotated-exif.jpg'), withOrientation(Buffer.from(out.rotated, 'base64'), 8));
+  // The same rotated pixels without EXIF: a genuine 1600×2400 portrait.
+  writeFileSync(fixture('portrait.jpg'), Buffer.from(out.rotated, 'base64'));
   // Opaque PNG that still has an alpha channel (RGBA): the optimizer must notice it's opaque.
   writeFileSync(fixture('opaque-rgba.png'), Buffer.from(out.photoPng, 'base64'));
   writeFileSync(fixture('already-small.webp'), Buffer.from(out.smallWebp, 'base64'));

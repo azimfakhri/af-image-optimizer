@@ -3,7 +3,7 @@ import encodeJpeg from '@jsquash/jpeg/encode';
 import encodeWebp from '@jsquash/webp/encode';
 import optimisePng from '@jsquash/oxipng/optimise';
 import resize from '@jsquash/resize';
-import { computeGeometry } from '../lib/geometry';
+import { computeGeometry, formatAspect } from '../lib/geometry';
 import { chooseFormat, countColorsUpTo, hasTransparency } from '../lib/pixels';
 import type { OutputFormat, Settings } from '../lib/presets';
 import { searchSmart, searchTarget } from '../lib/search';
@@ -92,8 +92,13 @@ async function prepare(job: JobRequest): Promise<Prepared> {
   const bitmap = await decode(job.file, job.inputFormat);
   const inWidth = bitmap.width;
   const inHeight = bitmap.height;
-  const geo = computeGeometry(inWidth, inHeight, s.fit, s.maxWidth, s.maxHeight);
+  const geo = computeGeometry(inWidth, inHeight, s.fit, s.maxWidth, s.maxHeight, {
+    minAspect: s.minAspect,
+    maxAspect: s.maxAspect,
+    position: s.cropPosition,
+  });
   if (geo.belowTarget) notes.push(`Source is smaller than ${s.maxWidth}×${s.maxHeight}; not upscaled.`);
+  if (geo.clampedTo) notes.push(`Cropped to ${formatAspect(geo.clampedTo)}.`);
 
   // Draw the crop into a canvas, pre-shrinking with the browser only if it exceeds the canvas limit.
   let outW = geo.width;

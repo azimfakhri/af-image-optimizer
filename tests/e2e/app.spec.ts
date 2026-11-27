@@ -120,6 +120,19 @@ test('HEIC in the Form upload preset becomes a JPEG under 100 KB', async ({ page
   expect(o.size).toBeLessThanOrEqual(100 * 1024);
 });
 
+test('"Crop if taller than 4:3" crops portraits only, after EXIF rotation', async ({ page }) => {
+  await page.getByLabel('Crop if taller than').selectOption('4:3');
+  await addFiles(page, ['portrait.jpg', 'landscape.jpg', 'rotated-exif.jpg']);
+  const portrait = await output(page, 'portrait.jpg');
+  expect([portrait.width, portrait.height]).toEqual([1600, 1200]);
+  await expect(row(page, 'portrait.jpg')).toContainText('Cropped to 4:3');
+  // 3:2 landscape, and a portrait-stored photo that EXIF rotates to landscape, stay uncropped.
+  for (const name of ['landscape.jpg', 'rotated-exif.jpg']) {
+    const o = await output(page, name);
+    expect([o.width, o.height]).toEqual([1600, 1067]);
+  }
+});
+
 test('shows an error for corrupt files without stopping the batch', async ({ page }) => {
   await addFiles(page, ['corrupt.jpg', 'broken.heic', 'landscape.jpg']);
   await expect(row(page, 'corrupt.jpg').locator('.text-danger')).toBeVisible();

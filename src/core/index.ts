@@ -6,22 +6,27 @@
  *   upload(r.file);
  */
 import { detectFormat, type InputFormat } from '../lib/detectFormat';
-import { PROBE_BYTES, readDimensions } from '../lib/dimensions';
+import { PROBE_BYTES, readDimensions, readOrientation } from '../lib/dimensions';
+import { formatAspect, parseAspect, type AspectInput, type CropPosition } from '../lib/geometry';
 import { outputName } from '../lib/naming';
 import { Pool, type PoolOptions } from '../lib/pipeline';
 import { getPreset, PRESETS, type OutputFormat, type Preset, type Settings } from '../lib/presets';
 import { EXT, MIME } from '../workers/protocol';
 
-export { PRESETS, getPreset, detectFormat };
-export type { InputFormat, OutputFormat, Preset, Settings, PoolOptions };
+export { PRESETS, getPreset, detectFormat, parseAspect, formatAspect };
+export type { InputFormat, OutputFormat, Preset, Settings, PoolOptions, AspectInput, CropPosition };
 
 export const MAX_FILE_BYTES = 100 * 1024 * 1024;
 /** Hard cap on decoded source size (megapixels). */
 export const MAX_SOURCE_MP = 200;
 
-export interface OptimizeOptions extends Partial<Settings> {
+export interface OptimizeOptions extends Omit<Partial<Settings>, 'minAspect' | 'maxAspect'> {
   /** Preset id to start from (default: 'content'). Other fields override it. */
   preset?: string;
+  /** Crop images narrower/taller than this width/height ratio: `4 / 3` or `'4:3'`. Wider images are untouched. */
+  minAspect?: AspectInput;
+  /** Crop images wider than this width/height ratio: `16 / 9` or `'16:9'`. */
+  maxAspect?: AspectInput;
 }
 
 export interface OptimizeResult {
@@ -55,9 +60,14 @@ export class OptimizeError extends Error {
 
 export interface Probe {
   format: InputFormat;
-  /** Stored dimensions from the header, if readable. */
+  /** Stored dimensions from the header, if readable (not rotation-corrected). */
   width?: number;
   height?: number;
+  /** EXIF orientation (1–8; JPEG only). 5–8 mean the photo displays rotated 90°. */
+  orientation?: number;
+  /** Dimensions as displayed, after EXIF rotation. Use these to tell portrait from landscape. */
+  displayWidth?: number;
+  displayHeight?: number;
 }
 
 /** Sniff the format (magic bytes) and header dimensions. Throws OptimizeError('unsupported' | 'too-large'). */
@@ -69,16 +79,31 @@ export async function probe(file: Blob): Promise<Probe> {
   const dims = readDimensions(head, d.format);
   if (dims && (dims.width * dims.height) / 1e6 > MAX_SOURCE_MP)
     throw new OptimizeError('too-large', `Larger than ${MAX_SOURCE_MP} megapixels.`);
-  return { format: d.format, ...dims };
+  if (!dims) return { format: d.format };
+  const orientation = d.format === 'jpeg' ? readOrientation(head) : undefined;
+  const swap = orientation !== undefined && orientation >= 5;
+  return {
+    format: d.format,
+    ...dims,
+    ...(orientation !== undefined && { orientation }),
+    displayWidth: swap ? dims.height : dims.width,
+    displayHeight: swap ? dims.width : dims.height,
+  };
 }
 
+/** Fields where an explicit `undefined` means "off/unbounded" instead of "use the preset's value". */
+const CLEARABLE = new Set(['maxWidth', 'maxHeight', 'minAspect', 'maxAspect']);
+
 export function resolveSettings(opts: OptimizeOptions = {}): Settings {
-  const { preset, ...overrides } = opts;
-  // An explicit `maxWidth: undefined` means "unbounded"; other undefined fields fall back to the preset.
-  const defined = Object.fromEntries(
-    Object.entries(overrides).filter(([k, v]) => v !== undefined || k === 'maxWidth' || k === 'maxHeight'),
-  );
-  return { ...getPreset(preset ?? 'content').settings, ...defined };
+  const { preset, minAspect, maxAspect, ...rest } = opts;
+  const overrides: Partial<Settings> = { ...rest };
+  if ('minAspect' in opts) overrides.minAspect = minAspect === undefined ? undefined : parseAspect(minAspect);
+  if ('maxAspect' in opts) overrides.maxAspect = maxAspect === undefined ? undefined : parseAspect(maxAspect);
+  const defined = Object.fromEntries(Object.entries(overrides).filter(([k, v]) => v !== undefined || CLEARABLE.has(k)));
+  const s: Settings = { ...getPreset(preset ?? 'content').settings, ...defined };
+  if (s.minAspect && s.maxAspect && s.minAspect > s.maxAspect)
+    throw new TypeError(`minAspect (${s.minAspect}) is larger than maxAspect (${s.maxAspect}).`);
+  return s;
 }
 
 export interface CallOptions {

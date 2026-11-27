@@ -1,4 +1,5 @@
 import type { InputFormat } from './detectFormat';
+import { exifOrientation } from './strip';
 
 /** Header bytes read to find dimensions (JPEG SOF can sit after a large EXIF thumbnail). */
 export const PROBE_BYTES = 512 * 1024;
@@ -69,4 +70,25 @@ export function readDimensions(b: Uint8Array, format: InputFormat): Dimensions |
     default:
       return null;
   }
+}
+
+/** EXIF orientation (1–8) from a JPEG header; 1 when there's no EXIF orientation tag. */
+export function readOrientation(b: Uint8Array): number {
+  if (b[0] !== 0xff || b[1] !== 0xd8) return 1;
+  let o = 2;
+  while (o + 4 <= b.length && b[o] === 0xff) {
+    const m = b[o + 1];
+    if (m === 0xff) {
+      o++;
+      continue;
+    }
+    if (m === 0xda || m === 0xd9) break;
+    const len = (b[o + 2] << 8) | b[o + 3];
+    if (m === 0xe1) {
+      const r = exifOrientation(b.subarray(o, o + 2 + len));
+      if (r !== 1) return r;
+    }
+    o += 2 + len;
+  }
+  return 1;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveSettings } from '../../src/core';
-import { readDimensions } from '../../src/lib/dimensions';
+import { readDimensions, readOrientation } from '../../src/lib/dimensions';
 import { Pool } from '../../src/lib/pipeline';
 import type { JobRequest } from '../../src/workers/protocol';
 
@@ -43,7 +43,26 @@ describe('readDimensions', () => {
   });
 });
 
+describe('readOrientation', () => {
+  it('finds the EXIF orientation in a JPEG header', () => {
+    const tiff = [0x49, 0x49, 0x2a, 0, 8, 0, 0, 0, 1, 0, 0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0];
+    const body = [...'Exif'].map((c) => c.charCodeAt(0)).concat([0, 0], tiff);
+    const app1 = [0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 0xff, ...body];
+    expect(readOrientation(new Uint8Array([0xff, 0xd8, ...app1, 0xff, 0xda]))).toBe(6);
+    expect(readOrientation(new Uint8Array([0xff, 0xd8, 0xff, 0xda]))).toBe(1);
+    expect(readOrientation(new Uint8Array([0x89, 0x50]))).toBe(1);
+  });
+});
+
 describe('resolveSettings', () => {
+  it('accepts aspect limits as numbers or strings and validates them', () => {
+    expect(resolveSettings({ minAspect: '4:3', cropPosition: 'top' })).toMatchObject({ minAspect: 4 / 3, cropPosition: 'top', maxWidth: 1600 });
+    expect(resolveSettings({ maxAspect: 16 / 9 }).maxAspect).toBeCloseTo(1.7778);
+    expect(() => resolveSettings({ minAspect: '16:9', maxAspect: '4:3' })).toThrow(/larger than maxAspect/);
+    expect(() => resolveSettings({ minAspect: 'tall' })).toThrow(TypeError);
+    expect('minAspect' in resolveSettings({ minAspect: undefined })).toBe(true);
+  });
+
   it('starts from the preset and applies overrides', () => {
     const s = resolveSettings({ preset: 'og', quality: 70 });
     expect(s).toMatchObject({ maxWidth: 1200, maxHeight: 630, fit: 'cover', quality: 70, opaqueFormat: 'jpeg' });

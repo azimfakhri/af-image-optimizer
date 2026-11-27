@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeGeometry } from '../../src/lib/geometry';
+import { computeGeometry, formatAspect, parseAspect } from '../../src/lib/geometry';
+import { settingsFromParams } from '../../src/lib/params';
 import { pastedName, outputName, uniquePath } from '../../src/lib/naming';
 import { chooseFormat, countColorsUpTo, hasTransparency } from '../../src/lib/pixels';
 import { searchSmart, searchTarget } from '../../src/lib/search';
@@ -19,6 +20,58 @@ describe('geometry', () => {
     const small = computeGeometry(800, 800, 'cover', 1200, 630);
     expect(small).toMatchObject({ width: 800, belowTarget: true });
     expect(small.height).toBe(420);
+  });
+  it('minAspect crops only images taller than the ratio', () => {
+    // Portrait 3000×4000 with minAspect 4:3 → centre crop 3000×2250 → 1600×1200.
+    const portrait = computeGeometry(3000, 4000, 'inside', 1600, undefined, { minAspect: 4 / 3 });
+    expect(portrait).toMatchObject({ sx: 0, sy: 875, sw: 3000, sh: 2250, width: 1600, height: 1200, clampedTo: 4 / 3 });
+    // Wide 16:9 and 3:2 are untouched.
+    expect(computeGeometry(4000, 2250, 'inside', 1600, undefined, { minAspect: 4 / 3 })).toMatchObject({ sh: 2250, width: 1600, height: 900 });
+    expect(computeGeometry(6000, 4000, 'inside', 1600, undefined, { minAspect: 4 / 3 }).clampedTo).toBeUndefined();
+    // Square counts as taller than 4:3.
+    expect(computeGeometry(2000, 2000, 'inside', 1600, undefined, { minAspect: 4 / 3 })).toMatchObject({ sh: 1500, width: 1600, height: 1200 });
+  });
+  it('maxAspect crops wide images; crop position picks the kept part', () => {
+    const pano = computeGeometry(9000, 3000, 'inside', undefined, undefined, { maxAspect: 16 / 9 });
+    expect(pano).toMatchObject({ sw: 5333, sh: 3000, sx: 1833, width: 5333 });
+    expect(computeGeometry(9000, 3000, 'inside', undefined, undefined, { maxAspect: 16 / 9, position: 'left' }).sx).toBe(0);
+    expect(computeGeometry(9000, 3000, 'inside', undefined, undefined, { maxAspect: 16 / 9, position: 'right' }).sx).toBe(3667);
+    expect(computeGeometry(3000, 4000, 'inside', undefined, undefined, { minAspect: 4 / 3, position: 'top' }).sy).toBe(0);
+    expect(computeGeometry(3000, 4000, 'inside', undefined, undefined, { minAspect: 4 / 3, position: 'bottom' }).sy).toBe(1750);
+    // Position also applies to cover.
+    expect(computeGeometry(3000, 4000, 'cover', 1080, 1080, { position: 'top' })).toMatchObject({ sy: 0, sw: 3000, sh: 3000 });
+  });
+  it('parses and formats aspect ratios', () => {
+    expect(parseAspect(4 / 3)).toBeCloseTo(1.3333);
+    expect(parseAspect('4:3')).toBeCloseTo(1.3333);
+    expect(parseAspect(' 16 / 9 ')).toBeCloseTo(1.7778);
+    expect(parseAspect('1.5')).toBe(1.5);
+    for (const bad of ['', 'wide', '4:0', '-1', 0, NaN]) expect(() => parseAspect(bad)).toThrow(TypeError);
+    expect(formatAspect(4 / 3)).toBe('4:3');
+    expect(formatAspect(16 / 9)).toBe('16:9');
+    expect(formatAspect(1)).toBe('1:1');
+    expect(formatAspect(1.4142)).toBe('1.41');
+  });
+});
+
+describe('settingsFromParams', () => {
+  const from = (o: Record<string, string>) => settingsFromParams((n) => o[n] ?? null);
+  it('parses attributes / URL parameters', () => {
+    expect(from({ 'max-width': '1600', 'min-aspect': '4:3', 'crop-position': 'top', format: 'jpeg', 'target-kb': '150' }).settings).toEqual({
+      maxWidth: 1600,
+      minAspect: 4 / 3,
+      cropPosition: 'top',
+      format: 'jpeg',
+      targetKB: 150,
+    });
+  });
+  it('skips invalid values and reports them', () => {
+    const r = from({ 'max-width': 'big', fit: 'stretch', quality: '101', 'crop-position': 'middle' });
+    expect(r.settings).toEqual({});
+    expect(r.errors).toHaveLength(4);
+    const conflict = from({ 'min-aspect': '16:9', 'max-aspect': '4:3' });
+    expect(conflict.settings).toEqual({});
+    expect(conflict.errors[0]).toMatch(/larger than max-aspect/);
   });
 });
 

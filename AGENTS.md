@@ -38,7 +38,8 @@ src/
   lib/
     detectFormat.ts          magic-byte sniffing (JPEG/PNG/WebP/AVIF/HEIC; rejects animated WebP, GIF)
     presets.ts               preset definitions; Settings type
-    geometry.ts              inside/cover crop + size maths, never upscales
+    geometry.ts              inside/cover crop, minAspect/maxAspect clamp, crop position, never upscales
+    params.ts                kebab-case settings for web component attributes and iframe URL params
     pixels.ts                transparency scan, colour count, chooseFormat
     ssim.ts, search.ts       SSIM on luma; binary searches for smart quality and target size
     strip.ts                 lossless JPEG/PNG metadata strip (used by the fallback)
@@ -56,6 +57,7 @@ vercel.json                  static deploy + strict CSP (connect-src 'self'); /e
 ## Rules and decisions
 - **Detect formats by magic bytes**, never by extension or MIME type. Keep `.jfif` and the other JPEG extensions in the `ACCEPT` list.
 - **EXIF orientation:** `createImageBitmap(..., { imageOrientation: 'from-image' })`. Re-encoding from pixels strips all metadata.
+- **Aspect limits** (`minAspect`/`maxAspect`, width/height) crop only out-of-range images, after EXIF rotation, in the same pass. Embedder-pinned settings (attributes/URL params) are reapplied on every preset switch (`useOptimizer(preset, fixed)`).
 - **Never upscale.** For fixed-ratio presets with a small source, crop at the largest size the source allows and add a note.
 - **Canvas limit:** keep every canvas at or under 16,777,216 px (the iOS Safari cap); larger crops are shrunk by the browser first, then Lanczos3.
 - **Transparency** comes from scanning pixels, not from the file having an alpha channel. With alpha: ≤256 colours → oxipng PNG (lossless palette), otherwise WebP with alpha.

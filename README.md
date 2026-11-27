@@ -92,19 +92,28 @@ await optimize(file, { preset: 'content' });                     // ≤1600 px W
 await optimize(file, { preset: 'form', targetKB: 200 });         // JPEG under 200 KB
 await optimize(file, { maxWidth: 800, format: 'webp', mode: 'fixed', quality: 75 });
 await optimize(file, { maxWidth: 1080, maxHeight: 1080, fit: 'cover' });   // square crop
+await optimize(file, { maxWidth: 1600, minAspect: '4:3' });     // crop only portraits/squares to 4:3; wide photos untouched
+await optimize(file, { maxAspect: '16:9', cropPosition: 'left' }); // trim panoramas, keep the left side
 ```
 
 | Field | Values |
 |---|---|
 | `preset` | `hero` `content` `thumb` `og` `instagram` `wordpress` `shopify` `email` `form` `custom` |
 | `maxWidth`, `maxHeight` | pixels (never upscales) |
-| `fit` | `inside` (default) or `cover` (centre crop to exact ratio) |
+| `fit` | `inside` (default) or `cover` (crop to the exact `maxWidth`×`maxHeight` ratio) |
+| `minAspect` | crop images **taller** than this width/height ratio, e.g. `4/3` or `'4:3'`. Unset = never |
+| `maxAspect` | crop images **wider** than this ratio, e.g. `'16:9'`. Unset = never |
+| `cropPosition` | part kept when cropping: `center` (default) `top` `bottom` `left` `right` |
 | `format` | `auto` `jpeg` `webp` `png` |
 | `mode` | `smart` (SSIM search), `fixed`, `target` |
 | `quality` | 40–100 (fixed mode) |
 | `ssimTarget` | e.g. `0.97`, `0.98`, `0.99` (smart mode) |
 | `targetKB` | size cap (target mode) |
 | `suffix` | appended to the output name, e.g. `-1600w` |
+
+Aspect limits are applied after EXIF rotation, so a phone photo stored sideways is judged by how it displays. The result's `notes` say when a crop happened (`Cropped to 4:3.`).
+
+**Before optimizing:** `probe(file)` reads the header only and returns `format`, `width`/`height` as stored, and `displayWidth`/`displayHeight` after EXIF rotation (plus `orientation` for JPEG), so you can tell portrait from landscape up front.
 
 **Batches, cancellation and errors:**
 
@@ -162,6 +171,12 @@ import 'af-image-optimizer/element';
 |---|---|
 | `preset` | any preset id (initial selection) |
 | `theme` | `light`, `dark`, or omit to follow the OS |
+| `max-width`, `max-height`, `fit`, `format`, `mode`, `quality`, `target-kb`, `min-aspect`, `max-aspect`, `crop-position` | same as the library options (kebab-case). Stay fixed when the user switches preset. Invalid values are ignored with a console warning |
+
+```html
+<!-- Up to 1600 px wide; portraits and squares cropped to 4:3 keeping the top -->
+<image-optimizer preset="content" max-width="1600" min-aspect="4:3" crop-position="top"></image-optimizer>
+```
 
 React example:
 ```tsx
@@ -232,6 +247,7 @@ For sites where you can only paste HTML. Use the hosted version, or your own dep
 |---|---|
 | `preset` | initial preset |
 | `theme` | `light` or `dark` |
+| `max-width`, `max-height`, `fit`, `format`, `mode`, `quality`, `target-kb`, `min-aspect`, `max-aspect`, `crop-position` | same as the web component attributes, e.g. `&max-width=1600&min-aspect=4:3` |
 | `origin` | your page's origin. Required to receive files; they're only ever posted to this exact origin. Without it, users download from inside the frame. |
 
 Live examples: [web component](https://af-image-optimizer.vercel.app/examples/web-component) · [input enhancer](https://af-image-optimizer.vercel.app/examples/enhance) · [iframe embed](https://af-image-optimizer.vercel.app/examples/iframe).

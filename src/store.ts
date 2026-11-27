@@ -79,10 +79,15 @@ type Runnable = Pick<Item, 'id' | 'file' | 'relativePath' | 'probe' | 'override'
 
 let seq = 0;
 
-export function useOptimizer(initialPresetId = DEFAULT_PRESET_ID) {
+/**
+ * @param fixed Settings an embedder pins (web component attributes, iframe URL parameters). They're applied on top of
+ *   the initial preset and every preset the user picks later.
+ */
+export function useOptimizer(initialPresetId = DEFAULT_PRESET_ID, fixed?: Partial<Settings>) {
   const [items, dispatch] = useReducer(reducer, []);
   const [presetId, setPresetId] = useState(initialPresetId);
-  const [settings, setSettingsState] = useState<Settings>(() => getPreset(initialPresetId).settings);
+  const [pinned] = useState<Partial<Settings>>(() => fixed ?? {});
+  const [settings, setSettingsState] = useState<Settings>(() => ({ ...getPreset(initialPresetId).settings, ...pinned }));
   const [notice, setNotice] = useState<string | null>(null);
 
   const optimizer = useRef<Optimizer | null>(null);
@@ -183,8 +188,8 @@ export function useOptimizer(initialPresetId = DEFAULT_PRESET_ID) {
 
   const selectPreset = useCallback((id: string) => {
     setPresetId(id);
-    setSettingsState(getPreset(id).settings);
-  }, []);
+    setSettingsState({ ...getPreset(id).settings, ...pinned });
+  }, [pinned]);
 
   /** Editing any field turns the selection into Custom, keeping the edited values. */
   const updateSettings = useCallback((patch: Partial<Settings>) => {
