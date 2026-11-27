@@ -5,6 +5,7 @@
 [![Live demo](https://img.shields.io/badge/demo-af--image--optimizer.vercel.app-2f6fed)](https://af-image-optimizer.vercel.app)
 [![npm](https://img.shields.io/npm/v/af-image-optimizer?color=cb3837)](https://www.npmjs.com/package/af-image-optimizer)
 [![CI](https://github.com/azimfakhri/af-image-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/azimfakhri/af-image-optimizer/actions/workflows/ci.yml)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 <p align="center">
@@ -69,6 +70,8 @@ The server's only job is to serve static files once: about 1.5 MB of JS and WASM
 ```sh
 npm install af-image-optimizer
 ```
+
+**Zero dependencies.** The codecs (MozJPEG, libwebp, oxipng, Lanczos3 resize) and their WebAssembly are bundled into the package, so nothing else gets installed. No peer dependency on React either: the web component bundles its own copy.
 
 ```ts
 import { optimize } from 'af-image-optimizer';
