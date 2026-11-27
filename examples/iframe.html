@@ -11,7 +11,7 @@
     <iframe id="opt" title="Image optimizer"></iframe>
     <pre id="log">Click “Use N images” inside the frame.</pre>
     <script type="module">
-      // In production, point this at your deployment, e.g. https://your-app.vercel.app
+      // On your own site, use the hosted instance: https://af-image-optimizer.vercel.app
       const HOST = location.origin;
       const frame = document.getElementById('opt');
       frame.src = `${HOST}/embed.html?preset=content&origin=${encodeURIComponent(location.origin)}`;

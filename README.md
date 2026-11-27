@@ -1,5 +1,7 @@
 # Image Optimizer
 
+**Live:** https://af-image-optimizer.vercel.app · Examples: [web component](https://af-image-optimizer.vercel.app/examples/web-component) · [input enhancer](https://af-image-optimizer.vercel.app/examples/enhance) · [iframe embed](https://af-image-optimizer.vercel.app/examples/iframe)
+
 A free, open-source image compressor that runs entirely in the browser. Drop in photos (JPG/JPEG/JFIF, PNG, WebP, AVIF), whole folders, or paste from the clipboard, and get files that are typically **85–98% smaller with no visible quality loss**.
 
 **Images never leave the device.** There is no upload, no server and no account. Use it as a website, or add it to your own app in one of four ways:
@@ -179,18 +181,18 @@ Keep your existing form. Images picked in the file input are optimized **before*
 
 ## 4. Iframe embed
 
-For sites where you can only paste HTML. Point it at your deployment (see [Deploy](#deploy)):
+For sites where you can only paste HTML. Use the hosted version, or your own deployment (see [Deploy](#deploy)):
 
 ```html
 <iframe
-  src="https://YOUR-DEPLOYMENT.vercel.app/embed?preset=content&origin=https://your-site.com"
+  src="https://af-image-optimizer.vercel.app/embed?preset=content&origin=https://your-site.com"
   title="Image optimizer"
   style="width:100%;height:760px;border:0"></iframe>
 
 <script>
   // Optional: receive the files when the user clicks "Use N images"
   addEventListener('message', (e) => {
-    if (e.origin !== 'https://YOUR-DEPLOYMENT.vercel.app') return;
+    if (e.origin !== 'https://af-image-optimizer.vercel.app') return;
     if (e.data?.type === 'af-image-optimizer:files') {
       console.log(e.data.files, e.data.results); // File[] + metadata
     }
@@ -204,15 +206,15 @@ For sites where you can only paste HTML. Point it at your deployment (see [Deplo
 | `theme` | `light` or `dark` |
 | `origin` | your page's origin. Required to receive files; they're only ever posted to this exact origin. Without it, users download from inside the frame. |
 
-Live examples are included in the site: `/examples/web-component`, `/examples/enhance`, `/examples/iframe`.
+Live examples: [web component](https://af-image-optimizer.vercel.app/examples/web-component) · [input enhancer](https://af-image-optimizer.vercel.app/examples/enhance) · [iframe embed](https://af-image-optimizer.vercel.app/examples/iframe).
 
 ---
 
 ## Deploy
 
-It's a static site, so any static host works.
+It's a static site, so any static host works. The public instance runs at https://af-image-optimizer.vercel.app.
 
-**Vercel:** import the GitHub repo at vercel.com/new. Settings are picked up from `vercel.json` (framework Vite, `npm run build`, output `dist`). No environment variables are needed. `vercel.json` also sets:
+**Vercel (self-host):** import the GitHub repo at vercel.com/new. Settings are picked up from `vercel.json` (framework Vite, `npm run build`, output `dist`). No environment variables are needed. `vercel.json` also sets:
 - A strict Content-Security-Policy with `connect-src 'self'`, so the browser itself blocks any attempt to send data elsewhere.
 - `frame-ancestors 'self'` everywhere except `/embed`, which may be framed by any site.
 - Long-term caching for hashed `/assets/*`.
