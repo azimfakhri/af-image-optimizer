@@ -39,7 +39,9 @@
     "LICENSE"
   ],
   "sideEffects": [
-    "./dist-lib/element.js"
+    "./dist-lib/element.js",
+    "./src/element-entry.ts",
+    "*.css"
   ],
   "scripts": {
     "dev": "vite",
@@ -48,7 +50,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "build:lib": "vite build -c vite.lib.config.ts && tsc -p tsconfig.lib.json",
-    "prepublishOnly": "npm test && npm run build:lib"
+    "prepublishOnly": "npm test && npm run build:lib",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@jsquash/jpeg": "^1.6.0",
@@ -56,6 +59,7 @@
     "@jsquash/png": "^3.1.1",
     "@jsquash/resize": "^2.1.1",
     "@jsquash/webp": "^1.5.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/vite": "^4.3.5",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",

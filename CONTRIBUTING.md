@@ -13,9 +13,11 @@ npm run dev        # app at http://localhost:5173, examples at /examples/*.html
 Before opening a PR:
 ```sh
 npm run lint && npx tsc -b && npm test && npm run build && npm run build:lib
+npx playwright install   # once
+npm run test:e2e         # Chromium, Firefox and WebKit
 ```
 
-On macOS, `./scripts/make-fixtures.sh` builds test images (big camera JPEG, EXIF-rotated photo, transparent logo, `.jfif`, corrupt file…) in `tests/fixtures/`.
+The e2e tests generate their own synthetic images. For manual testing on macOS, `./scripts/make-fixtures.sh` builds extra images (big camera JPEG, EXIF-rotated photo, transparent logo, `.jfif`, corrupt file…) in `tests/fixtures/`.
 
 ## Where things live
 See [AGENTS.md](AGENTS.md) for the layout and the design rules. The short version:

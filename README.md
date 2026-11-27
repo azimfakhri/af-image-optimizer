@@ -256,9 +256,10 @@ Netlify, Cloudflare Pages and GitHub Pages also work: build with `npm run build`
 npm install
 npm run dev                  # app at /, examples at /examples/*.html
 npm test                     # unit tests (Vitest)
+npm run test:e2e             # end-to-end tests in Chromium, Firefox and WebKit (Playwright)
 npm run build                # site → dist/
 npm run build:lib            # npm package → dist-lib/
-./scripts/make-fixtures.sh   # macOS: builds test images in tests/fixtures/
+./scripts/make-fixtures.sh   # macOS: extra images for manual testing in tests/fixtures/
 ```
 
 Codecs: [jSquash](https://github.com/jamsinclair/jSquash) (MozJPEG, libwebp, oxipng, Lanczos3 resize; Apache-2.0). ZIP: [fflate](https://github.com/101arrowz/fflate) (MIT).

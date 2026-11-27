@@ -10,13 +10,14 @@ A client-side image optimizer, published as a static site. All decoding and enco
 npm install
 npm run dev                  # Vite dev server
 npm test                     # Vitest unit tests (tests/unit)
+npm run test:e2e             # Playwright: Chromium, Firefox, WebKit against a production build with the vercel.json headers
 npx tsc -b                   # type-check
 npm run lint                 # oxlint
 npm run build                # tsc -b && vite build → dist/ (site: app, /embed, /examples/*)
 npm run build:lib            # npm package → dist-lib/ (vite.lib.config.ts + tsconfig.lib.json)
-./scripts/make-fixtures.sh   # macOS only: builds tests/fixtures/ from system wallpapers (gitignored)
+./scripts/make-fixtures.sh   # macOS only: extra manual-testing fixtures in tests/fixtures/ (gitignored)
 ```
-Before finishing a change, run `npm test`, `npx tsc -b` and `npm run lint`.
+Before finishing a change, run `npm test`, `npx tsc -b` and `npm run lint`; for UI, worker or integration changes also `npm run test:e2e` (first time: `npx playwright install`).
 
 ## Layout
 ```
@@ -45,6 +46,7 @@ src/
     folderOutput.ts          Save to folder (showDirectoryPicker, Chromium)
     folderInput.ts, naming.ts, zip.ts, format.ts
 tests/unit/                  Vitest tests for lib/ and core
+tests/e2e/                   Playwright tests; global-setup.ts generates synthetic fixtures into tests/e2e/.fixtures
 examples/                    integration demos (built into the site)
 scripts/                     fixture generation
 vercel.json                  static deploy + strict CSP (connect-src 'self'); /embed may be framed
@@ -65,6 +67,8 @@ vercel.json                  static deploy + strict CSP (connect-src 'self'); /e
 - The worker URL comes from `?worker&url`; `startWorker()` wraps cross-origin URLs (CDN) in a same-origin blob shim. The library build uses `base: './'` so the URL is `import.meta.url`-relative and the WASM is inlined.
 - Keep the CSP in `vercel.json` working: no inline scripts in HTML (use `type="module"`, which Vite bundles), no third-party origins.
 - All runtime code is bundled into the package, so dependencies live in devDependencies.
+- `sideEffects` in package.json must list `src/element-entry.ts`; otherwise the site build tree-shakes `import '/src/element-entry.ts'` away and the web component example breaks (the e2e suite catches this).
+- e2e tests fail on any page error, CSP violation, cross-origin request or non-GET request (`guard` fixture in tests/e2e/helpers.ts).
 
 ## Style
 - TypeScript strict-ish (`erasableSyntaxOnly`: no parameter properties or enums). React function components and hooks.
@@ -73,4 +77,4 @@ vercel.json                  static deploy + strict CSP (connect-src 'self'); /e
 
 ## Roadmap
 Done: milestones 1–5, plus the integrations (npm library, web component, input enhancer, iframe embed) and the Vercel config.
-Skipped for now: SEO landing pages. Next: Playwright e2e tests, publishing to npm. Phase 2: AVIF output, crop/focal point, srcset/`<picture>` + LQIP export, HEIC input, saved presets, PWA.
+Skipped for now: SEO landing pages. Published to npm (0.1.0). Phase 2: AVIF output, crop/focal point, srcset/`<picture>` + LQIP export, HEIC input, saved presets, PWA.
