@@ -85,7 +85,17 @@ test('WhatsApp / Facebook preset crops to exactly 1200×630 JPEG', async ({ page
   expect([o.width, o.height]).toEqual([1200, 630]);
 });
 
-test('converts HEIC (native in Safari, libheif elsewhere)', async ({ page, browserName }) => {
+test('converts HEIC (native where supported, libheif elsewhere)', async ({ page }) => {
+  // Safari on macOS/iOS decodes HEIC via the OS; Chrome, Firefox and Linux WebKit builds can't.
+  const heic = await readFile(fixture('landscape.heic'));
+  const native = await page.evaluate(async (bytes) => {
+    try {
+      (await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/heic' }))).close();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [...heic]);
   const libheif: string[] = [];
   page.on('request', (r) => r.url().includes('libheif') && libheif.push(r.url()));
   await addFiles(page, ['landscape.heic']);
@@ -95,8 +105,8 @@ test('converts HEIC (native in Safari, libheif elsewhere)', async ({ page, brows
   ]);
   expect(isWebp(o)).toBe(true);
   expect([o.width, o.height]).toEqual([1600, 1066]);
-  // Safari decodes HEIC itself and never downloads the decoder.
-  if (browserName === 'webkit') expect(libheif).toEqual([]);
+  // The decoder is only downloaded when the browser can't decode HEIC itself.
+  if (native) expect(libheif).toEqual([]);
   else expect(libheif.length).toBeGreaterThan(0);
   expect(near(o.pixels[0], [255, 0, 0])).toBe(true);
   expect(near(o.pixels[1], [0, 0, 255])).toBe(true);
