@@ -1,10 +1,33 @@
 # Image Optimizer
 
-**Live:** https://af-image-optimizer.vercel.app · Examples: [web component](https://af-image-optimizer.vercel.app/examples/web-component) · [input enhancer](https://af-image-optimizer.vercel.app/examples/enhance) · [iframe embed](https://af-image-optimizer.vercel.app/examples/iframe)
+**Compress images 90%+ in the browser. Nothing is uploaded. Drop it into any app.**
 
-A free, open-source image compressor that runs entirely in the browser. Drop in photos (JPG/JPEG/JFIF, PNG, WebP, AVIF), whole folders, or paste from the clipboard, and get files that are typically **85–98% smaller with no visible quality loss**.
+[![Live demo](https://img.shields.io/badge/demo-af--image--optimizer.vercel.app-2f6fed)](https://af-image-optimizer.vercel.app)
+[![npm](https://img.shields.io/npm/v/af-image-optimizer?color=cb3837)](https://www.npmjs.com/package/af-image-optimizer)
+[![CI](https://github.com/azimfakhri/af-image-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/azimfakhri/af-image-optimizer/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Images never leave the device.** There is no upload, no server and no account. Use it as a website, or add it to your own app in one of four ways:
+<p align="center">
+  <a href="https://af-image-optimizer.vercel.app"><img src="docs/demo.gif" alt="Dropping photos into Image Optimizer: a 4.2 MB camera JPEG becomes a 110 KB WebP, then a before/after slider shows no visible difference" width="800"></a>
+</p>
+
+**[Try it →](https://af-image-optimizer.vercel.app)** · Examples: [web component](https://af-image-optimizer.vercel.app/examples/web-component) · [input enhancer](https://af-image-optimizer.vercel.app/examples/enhance) · [iframe embed](https://af-image-optimizer.vercel.app/examples/iframe)
+
+Drop in photos (JPG/JPEG/JFIF, PNG, WebP, AVIF), whole folders, or paste from the clipboard. You get files that are typically **85–98% smaller with no visible quality loss**: a 4.2 MB 24-megapixel camera JPEG becomes a 110 KB WebP at SSIM 0.98.
+
+## Why another image compressor?
+
+| | **Image Optimizer** | Upload-based tools (TinyPNG, iLoveIMG…) | Squoosh |
+|---|---|---|---|
+| Your images stay on your device | ✅ | ❌ uploaded to a server | ✅ |
+| Batch + whole folders | ✅ | Batch, with free-tier limits | ❌ one at a time |
+| Picks quality per image (SSIM) | ✅ | ❌ | ❌ manual slider |
+| "Make it under 100 KB" | ✅ | ❌ | ❌ |
+| Presets for WhatsApp, Instagram, Shopify, WordPress… | ✅ | ❌ | ❌ |
+| Embed in your own app | ✅ npm, web component, input enhancer, iframe | Paid API | ❌ |
+| Price | Free, MIT | Freemium | Free |
+
+## Use it in your app
 
 | Integration | Best for | Effort |
 |---|---|---|

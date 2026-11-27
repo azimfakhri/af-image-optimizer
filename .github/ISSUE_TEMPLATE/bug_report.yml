@@ -1,0 +1,30 @@
+name: Bug report
+description: Something doesn't work or an image comes out wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Website, npm library, web component, input enhancer or iframe embed?
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: e.g. Safari 18 on iOS 18, Chrome 142 on Windows 11
+  - type: textarea
+    id: image
+    attributes:
+      label: Image details
+      description: Format, dimensions and file size. Attach the image only if you're happy for it to be public.
+  - type: input
+    id: preset
+    attributes:
+      label: Preset / settings used
