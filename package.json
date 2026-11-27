@@ -1,6 +1,6 @@
 {
   "name": "af-image-optimizer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Private, in-browser image optimizer: batch-compress JPG/PNG/WebP/HEIC with smart quality (SSIM) and target-size modes. Library, web component, input enhancer and iframe embed.",
   "license": "MIT AND LGPL-3.0",
   "type": "module",
