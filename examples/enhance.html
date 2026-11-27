@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Example: upload input enhancer</title>
+    <style>body{font-family:system-ui,sans-serif;max-width:720px;margin:2rem auto;padding:0 16px}input[data-optimizing]{outline:2px dashed orange}pre{background:#f3f3f0;padding:8px;overflow:auto}</style>
+  </head>
+  <body>
+    <h1>enhance() example</h1>
+    <form id="form">
+      <label>Photos for your application (max 100 KB each)<br />
+        <input id="photos" name="photos" type="file" accept="image/*,.jfif" multiple />
+      </label>
+      <p id="status"></p>
+      <button>Submit</button>
+    </form>
+    <pre id="log"></pre>
+    <script type="module">
+      import { enhance } from '/src/lib-entry.ts';
+      const input = document.getElementById('photos');
+      const status = document.getElementById('status');
+      enhance(input, {
+        preset: 'form',
+        targetKB: 100,
+        onProgress: (done, total) => (status.textContent = done < total ? `Optimizing ${done}/${total}…` : 'Ready'),
+        onError: (file, err) => (status.textContent = `${file.name}: ${err.message} (original kept)`),
+      });
+      // The page's own handler only ever sees optimized files.
+      input.addEventListener('change', () => {
+        document.getElementById('log').textContent = [...input.files].map((f) => `${f.name}  ${f.size} B  ${f.type}`).join('\n');
+      });
+      document.getElementById('form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const data = new FormData(e.target);
+        document.getElementById('log').textContent += `\n\nSubmitted ${data.getAll('photos').length} file(s).`;
+      });
+    </script>
+  </body>
+</html>

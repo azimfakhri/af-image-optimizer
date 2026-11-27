@@ -30,6 +30,20 @@
   }
 }
 
+:root[data-theme='dark'] {
+  --bg: #121211;
+  --surface: #1c1c1a;
+  --sunken: #262624;
+  --line: #34342f;
+  --text: #ededea;
+  --muted: #a3a39b;
+  --accent: #6d9bff;
+  --accent-text: #0b0b0a;
+  --good: #4ade80;
+  --danger: #fb923c;
+  color-scheme: dark;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);

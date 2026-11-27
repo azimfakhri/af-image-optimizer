@@ -63,11 +63,19 @@ async function lanczos(img: ImageData, width: number, height: number): Promise<I
   return resize(img, { width, height, method: 'lanczos3', fitMethod: 'stretch', premultiply: true, linearRGB: true });
 }
 
-async function run(job: JobRequest): Promise<JobSuccess> {
-  const t0 = performance.now();
+interface Prepared {
+  img: ImageData;
+  inWidth: number;
+  inHeight: number;
+  outW: number;
+  outH: number;
+  notes: string[];
+}
+
+/** Decode (EXIF-aware), crop and Lanczos3-resize to the target geometry. */
+async function prepare(job: JobRequest): Promise<Prepared> {
   const s: Settings = job.settings;
   const notes: string[] = [];
-
   const bitmap = await createImageBitmap(job.file, {
     imageOrientation: 'from-image',
     premultiplyAlpha: 'none',
@@ -92,7 +100,16 @@ async function run(job: JobRequest): Promise<JobSuccess> {
   const { ctx } = canvas2d(drawW, drawH);
   ctx.drawImage(bitmap, geo.sx, geo.sy, geo.sw, geo.sh, 0, 0, drawW, drawH);
   bitmap.close();
-  let img = await lanczos(ctx.getImageData(0, 0, drawW, drawH), outW, outH);
+  const img = await lanczos(ctx.getImageData(0, 0, drawW, drawH), outW, outH);
+  return { img, inWidth, inHeight, outW, outH, notes };
+}
+
+async function run(job: JobRequest): Promise<JobSuccess> {
+  const t0 = performance.now();
+  const s: Settings = job.settings;
+  const prep = await prepare(job);
+  let { img, outW, outH } = prep;
+  const { inWidth, inHeight, notes } = prep;
 
   const alpha = hasTransparency(img.data);
   const few = alpha && countColorsUpTo(img.data, 256) <= 256;
@@ -165,6 +182,7 @@ async function run(job: JobRequest): Promise<JobSuccess> {
   return {
     id: job.id,
     ok: true,
+    kind: 'encode',
     buffer,
     format,
     inWidth,
@@ -183,6 +201,12 @@ self.onmessage = async (e: MessageEvent<JobRequest>) => {
   const job = e.data;
   let res: JobResponse;
   try {
+    if (job.kind === 'reference') {
+      const { img } = await prepare(job);
+      const bitmap = await createImageBitmap(img, { premultiplyAlpha: 'none' });
+      self.postMessage({ id: job.id, ok: true, kind: 'reference', bitmap } satisfies JobResponse, [bitmap]);
+      return;
+    }
     const out = await run(job);
     self.postMessage(out, [out.buffer]);
     return;

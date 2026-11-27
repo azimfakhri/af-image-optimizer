@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { detectFileFormat, type InputFormat } from './lib/detectFormat';
+import { createOptimizer, OptimizeError, probe, type Optimizer, type Probe } from './core';
+import type { InputFormat } from './lib/detectFormat';
 import type { Picked } from './lib/folderInput';
-import { outputName } from './lib/naming';
-import { Pool } from './lib/pipeline';
 import { DEFAULT_PRESET_ID, getPreset, type OutputFormat, type Settings } from './lib/presets';
-import { EXT, MIME } from './workers/protocol';
 
 export const MAX_FILES = 500;
-export const MAX_FILE_BYTES = 100 * 1024 * 1024;
 
 export interface Result {
-  blob: Blob;
+  blob: File;
   url: string;
+  /** Output path relative to the picked root (folders kept). */
   path: string;
   format: OutputFormat;
   width: number;
@@ -32,7 +30,10 @@ export interface Item {
   file: File;
   relativePath: string;
   status: Status;
+  probe?: Probe;
   inputFormat?: InputFormat;
+  /** Per-file fixed quality set from the compare view. */
+  override?: number;
   error?: string;
   result?: Result;
 }
@@ -40,8 +41,13 @@ export interface Item {
 type Action =
   | { type: 'add'; items: Item[] }
   | { type: 'patch'; id: string; patch: Partial<Item> }
+  | { type: 'patchAll'; patch: (it: Item) => Partial<Item> | null }
   | { type: 'remove'; id: string }
   | { type: 'clear' };
+
+function revoke(it: Item | undefined, next?: Result) {
+  if (it?.result && it.result !== next) URL.revokeObjectURL(it.result.url);
+}
 
 function reducer(state: Item[], a: Action): Item[] {
   switch (a.type) {
@@ -50,25 +56,26 @@ function reducer(state: Item[], a: Action): Item[] {
     case 'patch':
       return state.map((it) => {
         if (it.id !== a.id) return it;
-        if (a.patch.result !== undefined && it.result && it.result !== a.patch.result) URL.revokeObjectURL(it.result.url);
+        if ('result' in a.patch) revoke(it, a.patch.result);
         return { ...it, ...a.patch };
       });
-    case 'remove': {
-      const it = state.find((x) => x.id === a.id);
-      if (it?.result) URL.revokeObjectURL(it.result.url);
+    case 'patchAll':
+      return state.map((it) => {
+        const p = a.patch(it);
+        return p ? { ...it, ...p } : it;
+      });
+    case 'remove':
+      revoke(state.find((x) => x.id === a.id));
       return state.filter((x) => x.id !== a.id);
-    }
     case 'clear':
-      for (const it of state) if (it.result) URL.revokeObjectURL(it.result.url);
+      for (const it of state) revoke(it);
       return [];
   }
 }
 
-function outputPath(relativePath: string, format: OutputFormat, suffix: string): string {
-  const slash = relativePath.lastIndexOf('/');
-  const dir = relativePath.slice(0, slash + 1);
-  return dir + outputName(relativePath.slice(slash + 1), EXT[format], suffix);
-}
+const IMAGE_NAME = /\.(jpe?g|jfif|jpe|pjpe?g|pjp|png|webp|avif|heic|heif)$/i;
+
+type Runnable = Pick<Item, 'id' | 'file' | 'relativePath' | 'probe' | 'override'>;
 
 let seq = 0;
 
@@ -78,88 +85,86 @@ export function useOptimizer(initialPresetId = DEFAULT_PRESET_ID) {
   const [settings, setSettingsState] = useState<Settings>(() => getPreset(initialPresetId).settings);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const pool = useRef<Pool | null>(null);
+  const optimizer = useRef<Optimizer | null>(null);
   const settingsRef = useRef(settings);
   const itemsRef = useRef(items);
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+  /** AbortController of each item's latest run; superseded runs are aborted and their results dropped. */
+  const runs = useRef(new Map<string, AbortController>());
 
-  /** Latest pool job id per item; stale results from superseded runs are dropped. */
-  const latestRun = useRef(new Map<string, string>());
-  const getPool = () => (pool.current ??= new Pool());
-
-  const process = useCallback(async (id: string, file: File, relativePath: string, inputFormat: InputFormat) => {
-    const s = settingsRef.current;
-    const runId = `${id}#${++seq}`;
-    latestRun.current.set(id, runId);
-    dispatch({ type: 'patch', id, patch: { status: 'processing', error: undefined } });
-    const res = await getPool().run({ id: runId, file, inputFormat, settings: s });
-    if (latestRun.current.get(id) !== runId) return;
-    if (!res.ok) {
-      if (res.error !== 'cancelled') dispatch({ type: 'patch', id, patch: { status: 'error', error: res.error } });
-      return;
+  const process = useCallback(async (it: Runnable) => {
+    if (!it.probe) return;
+    runs.current.get(it.id)?.abort();
+    const ctl = new AbortController();
+    runs.current.set(it.id, ctl);
+    const base = settingsRef.current;
+    const s: Settings = it.override === undefined ? base : { ...base, mode: 'fixed', quality: it.override };
+    dispatch({ type: 'patch', id: it.id, patch: { status: 'processing', error: undefined } });
+    try {
+      optimizer.current ??= createOptimizer();
+      const r = await optimizer.current.optimize(it.file, s, { signal: ctl.signal, probe: it.probe });
+      if (runs.current.get(it.id) !== ctl) return;
+      const slash = it.relativePath.lastIndexOf('/');
+      const result: Result = {
+        blob: r.file,
+        url: URL.createObjectURL(r.file),
+        path: it.relativePath.slice(0, slash + 1) + r.file.name,
+        format: r.format,
+        width: r.width,
+        height: r.height,
+        inWidth: r.inWidth,
+        inHeight: r.inHeight,
+        quality: r.quality,
+        ssim: r.ssim,
+        fallback: r.fallback,
+        notes: r.notes,
+        ms: r.ms,
+      };
+      dispatch({ type: 'patch', id: it.id, patch: { status: 'done', result } });
+    } catch (e) {
+      if (runs.current.get(it.id) !== ctl) return;
+      const err = e instanceof OptimizeError ? e : new OptimizeError('failed', String(e));
+      dispatch({ type: 'patch', id: it.id, patch: { status: 'error', error: err.message } });
     }
-    const blob = new Blob([res.buffer], { type: MIME[res.format] });
-    const result: Result = {
-      blob,
-      url: URL.createObjectURL(blob),
-      path: outputPath(relativePath, res.format, s.suffix),
-      format: res.format,
-      width: res.width,
-      height: res.height,
-      inWidth: res.inWidth,
-      inHeight: res.inHeight,
-      quality: res.quality,
-      ssim: res.ssim,
-      fallback: res.fallback,
-      notes: res.notes,
-      ms: res.ms,
-    };
-    dispatch({ type: 'patch', id, patch: { status: 'done', result } });
   }, []);
 
   const addFiles = useCallback(
     async (picked: Picked[]) => {
-      const room = MAX_FILES - itemsRef.current.length;
-      let skipped = 0;
+      const room = Math.max(0, MAX_FILES - itemsRef.current.length);
       if (picked.length > room) {
         setNotice(`Only ${MAX_FILES} files per batch; ${picked.length - room} ignored.`);
-        picked = picked.slice(0, Math.max(0, room));
+        picked = picked.slice(0, room);
       }
+      let skipped = 0;
       const fresh: Item[] = [];
       for (const p of picked) {
-        // Silently skip obvious non-images found while walking folders (e.g. .DS_Store, .txt).
-        if (p.relativePath.includes('/') && !/\.(jpe?g|jfif|jpe|pjpe?g|pjp|png|webp|avif|heic|heif)$/i.test(p.file.name) && !p.file.type.startsWith('image/')) {
+        // Quietly skip non-images found while walking folders (.DS_Store, .txt…).
+        if (p.relativePath.includes('/') && !IMAGE_NAME.test(p.file.name) && !p.file.type.startsWith('image/')) {
           skipped++;
           continue;
         }
-        const id = `f${++seq}`;
-        if (p.file.size > MAX_FILE_BYTES) {
-          fresh.push({ id, file: p.file, relativePath: p.relativePath, status: 'rejected', error: 'Larger than 100 MB.' });
-        } else {
-          fresh.push({ id, file: p.file, relativePath: p.relativePath, status: 'detecting' });
-        }
+        fresh.push({ id: `f${++seq}`, file: p.file, relativePath: p.relativePath, status: 'detecting' });
       }
       if (skipped) setNotice(`${skipped} non-image file${skipped > 1 ? 's' : ''} skipped.`);
       dispatch({ type: 'add', items: fresh });
       await Promise.all(
-        fresh
-          .filter((it) => it.status === 'detecting')
-          .map(async (it) => {
-            const d = await detectFileFormat(it.file);
-            if (!d.ok) return dispatch({ type: 'patch', id: it.id, patch: { status: 'rejected', error: d.reason } });
-            if (d.format === 'heic')
-              return dispatch({ type: 'patch', id: it.id, patch: { status: 'rejected', inputFormat: 'heic', error: 'HEIC support is coming soon. Export as JPEG for now.' } });
-            dispatch({ type: 'patch', id: it.id, patch: { status: 'queued', inputFormat: d.format } });
-            return process(it.id, it.file, it.relativePath, d.format);
-          }),
+        fresh.map(async (it) => {
+          try {
+            const info = await probe(it.file);
+            dispatch({ type: 'patch', id: it.id, patch: { status: 'queued', probe: info, inputFormat: info.format } });
+            await process({ ...it, probe: info });
+          } catch (e) {
+            dispatch({ type: 'patch', id: it.id, patch: { status: 'rejected', error: e instanceof Error ? e.message : String(e) } });
+          }
+        }),
       );
     },
     [process],
   );
 
-  // Re-run every processable file when settings change (debounced).
+  // Re-run every processable file when global settings change (debounced). Per-file overrides are cleared.
   const firstRun = useRef(true);
   useEffect(() => {
     settingsRef.current = settings;
@@ -168,17 +173,13 @@ export function useOptimizer(initialPresetId = DEFAULT_PRESET_ID) {
       return;
     }
     const t = setTimeout(() => {
-      getPool().cancelAll();
-      for (const it of itemsRef.current) {
-        if (it.inputFormat && it.inputFormat !== 'heic' && it.status !== 'rejected') {
-          process(it.id, it.file, it.relativePath, it.inputFormat);
-        }
-      }
+      dispatch({ type: 'patchAll', patch: (it) => (it.override !== undefined ? { override: undefined } : null) });
+      for (const it of itemsRef.current) if (it.probe && it.status !== 'rejected') process({ ...it, override: undefined });
     }, 350);
     return () => clearTimeout(t);
   }, [settings, process]);
 
-  useEffect(() => () => pool.current?.cancelAll(), []);
+  useEffect(() => () => optimizer.current?.dispose(), []);
 
   const selectPreset = useCallback((id: string) => {
     setPresetId(id);
@@ -191,19 +192,57 @@ export function useOptimizer(initialPresetId = DEFAULT_PRESET_ID) {
     setSettingsState((s) => ({ ...s, ...patch }));
   }, []);
 
+  const setOverride = useCallback(
+    (id: string, quality: number | undefined) => {
+      const it = itemsRef.current.find((x) => x.id === id);
+      if (!it) return;
+      dispatch({ type: 'patch', id, patch: { override: quality } });
+      process({ ...it, override: quality });
+    },
+    [process],
+  );
+
+  const retry = useCallback(
+    (id: string) => {
+      const it = itemsRef.current.find((x) => x.id === id);
+      if (it?.probe) process(it);
+    },
+    [process],
+  );
+
+  const cancelAll = useCallback(() => {
+    for (const it of itemsRef.current) {
+      if (it.status === 'queued' || it.status === 'processing') {
+        runs.current.get(it.id)?.abort();
+        runs.current.delete(it.id);
+        dispatch({ type: 'patch', id: it.id, patch: { status: 'error', error: 'Cancelled.' } });
+      }
+    }
+  }, []);
+
   const remove = useCallback((id: string) => {
-    const runId = latestRun.current.get(id);
-    if (runId) pool.current?.cancel(runId);
-    latestRun.current.delete(id);
+    runs.current.get(id)?.abort();
+    runs.current.delete(id);
     dispatch({ type: 'remove', id });
   }, []);
 
   const clear = useCallback(() => {
-    pool.current?.cancelAll();
-    latestRun.current.clear();
+    for (const c of runs.current.values()) c.abort();
+    runs.current.clear();
     dispatch({ type: 'clear' });
     setNotice(null);
   }, []);
 
-  return { items, presetId, settings, notice, setNotice, addFiles, selectPreset, updateSettings, remove, clear };
+  /** Resized, unencoded original for the compare view. Caller closes the bitmap. */
+  const reference = useCallback((it: Item) => {
+    optimizer.current ??= createOptimizer();
+    return optimizer.current.reference(it.file, settingsRef.current, { probe: it.probe });
+  }, []);
+
+  return {
+    items, presetId, settings, notice, setNotice,
+    addFiles, selectPreset, updateSettings, setOverride, retry, cancelAll, remove, clear, reference,
+  };
 }
+
+export type OptimizerStore = ReturnType<typeof useOptimizer>;

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Example: iframe embed</title>
+    <style>body{font-family:system-ui,sans-serif;max-width:1000px;margin:2rem auto;padding:0 16px}iframe{width:100%;height:760px;border:1px solid #ddd;border-radius:12px}pre{background:#f3f3f0;padding:8px;overflow:auto}</style>
+  </head>
+  <body>
+    <h1>Iframe embed example</h1>
+    <iframe id="opt" title="Image optimizer"></iframe>
+    <pre id="log">Click “Use N images” inside the frame.</pre>
+    <script type="module">
+      // In production, point this at your deployment, e.g. https://your-app.vercel.app
+      const HOST = location.origin;
+      const frame = document.getElementById('opt');
+      frame.src = `${HOST}/embed.html?preset=content&origin=${encodeURIComponent(location.origin)}`;
+      addEventListener('message', (e) => {
+        if (e.origin !== HOST || e.data?.type !== 'af-image-optimizer:files') return;
+        document.getElementById('log').textContent = e.data.files.map((f) => `${f.name}  ${f.size} B`).join('\n');
+      });
+    </script>
+  </body>
+</html>

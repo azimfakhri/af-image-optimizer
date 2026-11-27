@@ -27,3 +27,4 @@ dist-ssr
 tests/fixtures/
 test-results/
 playwright-report/
+dist-lib

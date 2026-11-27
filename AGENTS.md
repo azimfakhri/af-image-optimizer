@@ -12,7 +12,8 @@ npm run dev                  # Vite dev server
 npm test                     # Vitest unit tests (tests/unit)
 npx tsc -b                   # type-check
 npm run lint                 # oxlint
-npm run build                # tsc -b && vite build
+npm run build                # tsc -b && vite build → dist/ (site: app, /embed, /examples/*)
+npm run build:lib            # npm package → dist-lib/ (vite.lib.config.ts + tsconfig.lib.json)
 ./scripts/make-fixtures.sh   # macOS only: builds tests/fixtures/ from system wallpapers (gitignored)
 ```
 Before finishing a change, run `npm test`, `npx tsc -b` and `npm run lint`.
@@ -20,9 +21,16 @@ Before finishing a change, run `npm test`, `npx tsc -b` and `npm run lint`.
 ## Layout
 ```
 src/
-  App.tsx, main.tsx          UI shell; main.tsx reads data-preset from #root (used by landing pages)
-  store.ts                   useOptimizer(): items, settings, presets, re-run on settings change
-  components/                DropZone, PresetBar, SettingsPanel, FileRow
+  core/index.ts              framework-free public API: optimize, createOptimizer, probe, resolveSettings, OptimizeError
+  lib-entry.ts               npm entry "af-image-optimizer" (core + enhance)
+  element-entry.ts           npm entry "af-image-optimizer/element" (registers <image-optimizer>)
+  integrations/
+    enhance.ts               enhance(input): optimise files in an existing <input type=file> before the page sees them
+    element.tsx              <image-optimizer> web component (React App in a shadow root, emits `optimized`)
+    embed-main.tsx           iframe page (/embed): postMessage results to ?origin=
+  App.tsx, main.tsx          UI shell (App props: initialPreset, embedded, onUse)
+  store.ts                   useOptimizer(): items, settings, per-file overrides, retry/cancel; built on core
+  components/                DropZone, PresetBar, SettingsPanel, FileRow, CompareModal, ThemeToggle
   workers/encoder.worker.ts  decode → crop → Lanczos3 → alpha scan → encode (fixed | smart | target) → never-bigger fallback
   workers/protocol.ts        worker message types, MIME/extension maps
   lib/
@@ -32,10 +40,14 @@ src/
     pixels.ts                transparency scan, colour count, chooseFormat
     ssim.ts, search.ts       SSIM on luma; binary searches for smart quality and target size
     strip.ts                 lossless JPEG/PNG metadata strip (used by the fallback)
-    pipeline.ts              worker pool with cancellation
+    pipeline.ts              worker pool: concurrency + megapixel budget, cancellation, CDN-safe worker start
+    dimensions.ts            header dimensions (JPEG/PNG/WebP) for the memory budget
+    folderOutput.ts          Save to folder (showDirectoryPicker, Chromium)
     folderInput.ts, naming.ts, zip.ts, format.ts
-tests/unit/                  Vitest tests for lib/
+tests/unit/                  Vitest tests for lib/ and core
+examples/                    integration demos (built into the site)
 scripts/                     fixture generation
+vercel.json                  static deploy + strict CSP (connect-src 'self'); /embed may be framed
 ```
 
 ## Rules and decisions
@@ -49,7 +61,10 @@ scripts/                     fixture generation
 - **Single-threaded WASM only** (no COOP/COEP headers needed). Parallelism comes from the worker pool.
 - **Licensing:** the project is MIT. Do not add GPL dependencies; libimagequant was rejected for this reason.
 - jSquash packages must stay in `optimizeDeps.exclude` in `vite.config.ts`, because they load `.wasm` via `import.meta.url`.
-- Pool job ids are per run (`<itemId>#<n>`); results from runs that have been superseded are dropped in `store.ts`.
+- `store.ts` keeps one AbortController per item; results from superseded runs are dropped.
+- The worker URL comes from `?worker&url`; `startWorker()` wraps cross-origin URLs (CDN) in a same-origin blob shim. The library build uses `base: './'` so the URL is `import.meta.url`-relative and the WASM is inlined.
+- Keep the CSP in `vercel.json` working: no inline scripts in HTML (use `type="module"`, which Vite bundles), no third-party origins.
+- All runtime code is bundled into the package, so dependencies live in devDependencies.
 
 ## Style
 - TypeScript strict-ish (`erasableSyntaxOnly`: no parameter properties or enums). React function components and hooks.
@@ -57,5 +72,5 @@ scripts/                     fixture generation
 - Keep `lib/` pure and unit-tested; browser-only APIs belong in the worker or components.
 
 ## Roadmap
-Done: milestones 1–3 (input, worker, presets, smart quality, target size, alpha, fallback, ZIP, folder input).
-Next: compare modal and Save to folder (`showDirectoryPicker`), memory budget for the worker pool, a11y/mobile polish, SEO landing pages (Vite multi-page build from `pages.config.ts`), Playwright e2e tests. Phase 2: AVIF output, crop/focal point, srcset/`<picture>` + LQIP export, HEIC input, saved presets, PWA.
+Done: milestones 1–5, plus the integrations (npm library, web component, input enhancer, iframe embed) and the Vercel config.
+Skipped for now: SEO landing pages. Next: Playwright e2e tests, publishing to npm. Phase 2: AVIF output, crop/focal point, srcset/`<picture>` + LQIP export, HEIC input, saved presets, PWA.

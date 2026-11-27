@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Example: web component</title>
+    <style>body{font-family:system-ui,sans-serif;max-width:960px;margin:2rem auto;padding:0 16px}pre{background:#f3f3f0;padding:8px;overflow:auto}</style>
+  </head>
+  <body>
+    <h1>&lt;image-optimizer&gt; example</h1>
+    <image-optimizer preset="og"></image-optimizer>
+    <h2>Received files</h2>
+    <pre id="log">Click “Use N images” above.</pre>
+    <script type="module">
+      import '/src/element-entry.ts';
+      document.querySelector('image-optimizer').addEventListener('optimized', (e) => {
+        document.getElementById('log').textContent = e.detail.results
+          .map((r) => `${r.original.name} (${r.original.size} B) → ${r.file.name} (${r.file.size} B, ${r.width}×${r.height})`)
+          .join('\n');
+      });
+    </script>
+  </body>
+</html>
